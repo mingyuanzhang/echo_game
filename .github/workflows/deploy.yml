@@ -9,8 +9,12 @@
 # be set to "GitHub Actions". The workflow cannot do this for itself — configure-pages
 # can be asked to create the site with `enablement: true`, but GITHUB_TOKEN is not
 # permitted to call the create-a-Pages-site endpoint and the run fails with "Resource not
-# accessible by integration". The source must be GitHub Actions specifically; "Deploy
-# from a branch" makes deploy-pages fail instead.
+# accessible by integration".
+#
+# It must be "GitHub Actions" and not "Deploy from a branch". The branch option does not
+# error — it serves the repository verbatim, so the root index.html (the Vite dev entry,
+# pointing at /src/main.tsx) is what the browser gets, no bundle is ever loaded, and the
+# site is a blank page that returns 200.
 name: Deploy
 
 on:

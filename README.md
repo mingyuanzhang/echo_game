@@ -30,8 +30,15 @@ Pushing to `main` builds and publishes to GitHub Pages via `.github/workflows/de
 This needs enabling once, by hand: **Settings → Pages → Build and deployment → Source →
 GitHub Actions**. The workflow cannot do it for itself — `configure-pages` accepts
 `enablement: true`, but `GITHUB_TOKEN` is not permitted to create a Pages site and the run
-fails with *Resource not accessible by integration*. Pick "GitHub Actions" rather than
-"Deploy from a branch", or the deploy step fails instead.
+fails with *Resource not accessible by integration*.
+
+It has to be **GitHub Actions**, not "Deploy from a branch". Choosing the branch option
+fails in the worst possible way: GitHub serves the repository verbatim, so the root
+`index.html` — the Vite dev entry, which points at `/src/main.tsx` — is what reaches the
+browser. A browser cannot execute TypeScript, so nothing mounts and the site is a blank
+page that returns 200. The tell is that `/README.md` and `/src/main.tsx` are also fetchable,
+and that the run which succeeded is called "pages build and deployment" (GitHub's built-in
+branch workflow) rather than "Deploy".
 
 The site is then served from a subdirectory, which is why `vite.config.ts` sets
 `base: './'` — every asset path in the build is relative, so the same `dist/` works at a
