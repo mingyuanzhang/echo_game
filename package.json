@@ -1,0 +1,27 @@
+{
+  "name": "echo",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Echo — a blind echolocation escape game for the web",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "solve": "rolldown scripts/solve-levels.ts -f esm -p node -o node_modules/.cache/solve-levels.mjs && node node_modules/.cache/solve-levels.mjs",
+    "smoke": "rolldown scripts/smoke.tsx -f esm -p node -o node_modules/.cache/smoke.mjs && node node_modules/.cache/smoke.mjs"
+  },
+  "dependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.1"
+  }
+}
