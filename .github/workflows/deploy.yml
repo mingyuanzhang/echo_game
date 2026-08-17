@@ -4,6 +4,13 @@
 # files with no server component, so the artifact is simply whatever `npm run build`
 # leaves in dist/. `base: './'` in vite.config.ts is what lets those files work from the
 # /echo_game/ subdirectory a project site is served from.
+#
+# ONE-TIME SETUP, done by hand: Settings -> Pages -> Build and deployment -> Source must
+# be set to "GitHub Actions". The workflow cannot do this for itself — configure-pages
+# can be asked to create the site with `enablement: true`, but GITHUB_TOKEN is not
+# permitted to call the create-a-Pages-site endpoint and the run fails with "Resource not
+# accessible by integration". The source must be GitHub Actions specifically; "Deploy
+# from a branch" makes deploy-pages fail instead.
 name: Deploy
 
 on:
@@ -27,9 +34,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -45,13 +52,9 @@ jobs:
       # would catch the physics or the scoring drifting.
       - run: npm run solve
 
-      - uses: actions/configure-pages@v5
-        with:
-          # Turns Pages on for the repository the first time this runs, so the site does
-          # not need enabling by hand in Settings.
-          enablement: true
+      - uses: actions/configure-pages@v6
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
@@ -63,4 +66,4 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

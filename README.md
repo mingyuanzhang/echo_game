@@ -23,6 +23,20 @@ npm run build      # static files in dist/, deployable anywhere
 The build has no server component and no external requests — `dist/` can be dropped onto
 any static host, in any subdirectory.
 
+## Hosting
+
+Pushing to `main` builds and publishes to GitHub Pages via `.github/workflows/deploy.yml`.
+
+This needs enabling once, by hand: **Settings → Pages → Build and deployment → Source →
+GitHub Actions**. The workflow cannot do it for itself — `configure-pages` accepts
+`enablement: true`, but `GITHUB_TOKEN` is not permitted to create a Pages site and the run
+fails with *Resource not accessible by integration*. Pick "GitHub Actions" rather than
+"Deploy from a branch", or the deploy step fails instead.
+
+The site is then served from a subdirectory, which is why `vite.config.ts` sets
+`base: './'` — every asset path in the build is relative, so the same `dist/` works at a
+domain root or under any path.
+
 ## Playing
 
 | | |
