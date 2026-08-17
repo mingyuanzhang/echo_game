@@ -1,4 +1,5 @@
 import { FloorPlan } from '@/ui/FloorPlan';
+import { RunPath } from '@/ui/RunPath';
 import { grade, scoreRun, type RunState } from '@/game/run';
 
 /**
@@ -7,7 +8,8 @@ import { grade, scoreRun, type RunState } from '@/game/run';
  * what you had inferred, and where you were wrong.
  *
  * Which is why this screen is only reached by ending a run, and past the opening levels
- * a run can only end by getting out. Starting a level over shows you nothing.
+ * a run can only end by getting out. Starting a level over shows the walk without the
+ * room — see `PathReview`.
  */
 export function RunSummary({
   state,
@@ -31,39 +33,7 @@ export function RunSummary({
 
       <FloorPlan world={state.level.world} exit={state.level.exit} className="plan">
         {(perPx) => (
-          <>
-            <polyline
-              points={state.path.map((p) => `${p.x},${p.y}`).join(' ')}
-              fill="none"
-              stroke="#F5D524"
-              strokeOpacity={0.85}
-              strokeWidth={1.5}
-              strokeLinejoin="round"
-              strokeLinecap="round"
-              vectorEffect="non-scaling-stroke"
-            />
-            {/* Where a call was made. Density here shows how much you leaned on the sense. */}
-            {state.calls.map((call, i) => (
-              <circle
-                key={i}
-                cx={call.at.x}
-                cy={call.at.y}
-                r={7 * perPx}
-                fill="none"
-                stroke="#4FB4E0"
-                strokeOpacity={0.55}
-                strokeWidth={1}
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
-            <circle cx={state.path[0].x} cy={state.path[0].y} r={4.5 * perPx} fill="#2B5CE6" />
-            <circle
-              cx={state.pos.x}
-              cy={state.pos.y}
-              r={4.5 * perPx}
-              fill={escaped ? '#3ED598' : '#C2453A'}
-            />
-          </>
+          <RunPath state={state} perPx={perPx} endColor={escaped ? '#3ED598' : '#C2453A'} />
         )}
       </FloorPlan>
 

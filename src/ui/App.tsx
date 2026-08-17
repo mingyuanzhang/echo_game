@@ -6,6 +6,7 @@ import { loadProgress, saveProgress, type Progress } from '@/game/progress';
 import { initialRun, runReducer, scoreRun } from '@/game/run';
 import { AllClear } from '@/ui/AllClear';
 import { EchoField, type FieldPing } from '@/ui/EchoField';
+import { PathReview } from '@/ui/PathReview';
 import { ProgressPage } from '@/ui/ProgressPage';
 import { RoomPreview } from '@/ui/RoomPreview';
 import { RunSummary } from '@/ui/RunSummary';
@@ -33,6 +34,19 @@ export function App() {
   const [showProgress, setShowProgress] = useState(false);
   /** Easy mode, mid-look: the plan is up and the room has not started yet. */
   const [studying, setStudying] = useState(progress.easy);
+  /**
+   * Restart, asked for but not yet done: the attempt is frozen and its path is on screen.
+   * The run itself is untouched while this is up, so the review can read straight from
+   * `state` — which is also what stops it going stale if anything else were to fire.
+   */
+  const [reviewing, setReviewing] = useState(false);
+  /**
+   * Armed for a silent turn: the next press on the field points you instead of calling.
+   * A one-shot rather than a mode, so there is never a state you can be stuck in and not
+   * notice — the field is blank either way, and a call you meant to make coming out as a
+   * silent pivot would read as the game ignoring you.
+   */
+  const [turning, setTurning] = useState(false);
 
   const nextId = useRef(0);
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
@@ -81,8 +95,8 @@ export function App() {
   const levelIndex = LEVELS.findIndex((l) => l.id === state.level.id);
   const lastLevel = levelIndex === LEVELS.length - 1;
 
-  /** Nothing but the field is in the way, so a click on it means a call. */
-  const fieldLive = playing && !studying && !showProgress && !finished;
+  /** Nothing is in the way of the field, so a press on it is a call or a turn. */
+  const fieldLive = playing && !studying && !showProgress && !finished && !reviewing;
 
   /** Pointing picks a direction — there is no map on screen, so a point means nothing. */
   const onCall = useCallback(
@@ -100,9 +114,20 @@ export function App() {
       timers.current.add(timer);
 
       dispatch({ type: 'CALL', heading });
+      setTurning(false);
     },
     [state.level.world, state.pos, state.status],
   );
+
+  /**
+   * Turning costs nothing and returns nothing. Sound already in flight is left alone —
+   * unlike a step, a pivot does not move the ear those echoes were measured from, so
+   * they go on being true while you decide where to walk.
+   */
+  const onTurn = useCallback((heading: number) => {
+    dispatch({ type: 'TURN', heading });
+    setTurning(false);
+  }, []);
 
   /**
    * Stepping discards any sound still in flight. Those echoes were measured from where
@@ -111,15 +136,38 @@ export function App() {
   const onStep = useCallback(() => {
     clearTimers();
     setPings([]);
+    setTurning(false);
     dispatch({ type: 'STEP' });
   }, [clearTimers]);
 
-  const onRestart = useCallback(() => {
+  const restartNow = useCallback(() => {
     clearTimers();
     setPings([]);
+    setReviewing(false);
+    setTurning(false);
     setStudying(saved.current.easy);
     dispatch({ type: 'RESTART' });
   }, [clearTimers]);
+
+  /**
+   * Starting over from inside a run costs you the attempt but shows you the walk first —
+   * your line and your calls, drawn over a blank plan. It is feedback that cannot spoil
+   * the room, so it can be given away for free, unlike the debrief.
+   *
+   * Skipped when there is nothing to look at: a run with no calls and no steps has no
+   * path, and a blank sheet between the button and the fresh room is just an obstacle.
+   * Skipped too once the run has ended, since the debrief has already shown all of this
+   * and the room besides.
+   */
+  const onRestart = useCallback(() => {
+    if (state.status !== 'playing' || (state.pings === 0 && state.moves === 0)) {
+      restartNow();
+      return;
+    }
+    clearTimers();
+    setPings([]);
+    setReviewing(true);
+  }, [clearTimers, restartNow, state.moves, state.pings, state.status]);
 
   const loadLevel = useCallback(
     (index: number) => {
@@ -127,6 +175,8 @@ export function App() {
       if (!level) return;
       clearTimers();
       setPings([]);
+      setReviewing(false);
+      setTurning(false);
       // Written on arrival rather than on completion, so leaving the page halfway
       // through a room puts you back in that room and not the one before it.
       update({ level: index });
@@ -183,8 +233,14 @@ export function App() {
       }
 
       if (e.key === ' ' || e.key === 'Enter') {
+        // A focused control inside the record owns its own keys. The rows are buttons
+        // now, and swallowing enter here would make the list unreachable from the
+        // keyboard — every row would close the page instead of opening the room.
+        if (e.target instanceof HTMLElement && e.target.closest('.record')) return;
+
         e.preventDefault();
         if (showProgress) setShowProgress(false);
+        else if (reviewing) restartNow();
         else if (finished) return;
         else if (studying && playing) setStudying(false);
         else if (!playing) advance();
@@ -195,13 +251,25 @@ export function App() {
       if (e.key === 'r' || e.key === 'R') {
         if (showProgress || finished || studying) return;
         e.preventDefault();
-        onRestart();
+        // A second press confirms the first: R puts the path up, R again goes back in.
+        if (reviewing) restartNow();
+        else onRestart();
       }
     };
 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [advance, finished, onRestart, onStep, playing, showProgress, studying]);
+  }, [
+    advance,
+    finished,
+    onRestart,
+    onStep,
+    playing,
+    restartNow,
+    reviewing,
+    showProgress,
+    studying,
+  ]);
 
   return (
     <div className="app">
@@ -229,13 +297,20 @@ export function App() {
             heading={state.heading}
             blocked={state.blocked}
             interactive={fieldLive}
+            turning={turning}
             onCall={onCall}
+            onTurn={onTurn}
           />
         </main>
 
         <footer className="footer">
-          <p className="hint">
-            {state.blocked ? (
+          <p className={`hint ${turning ? 'is-turning' : ''}`}>
+            {turning ? (
+              <>
+                <span className="only-touch">tap a direction to face it — no sound</span>
+                <span className="only-pointer">click a direction to face it — no sound</span>
+              </>
+            ) : state.blocked ? (
               'something solid — you stopped short'
             ) : (
               <>
@@ -252,6 +327,16 @@ export function App() {
               onClick={onStep}
               disabled={!playing}>
               STEP
+            </button>
+            {/* Free, and free of information. Lights up while it is armed, because an
+                armed field looks exactly like an unarmed one. */}
+            <button
+              type="button"
+              className={`btn ${turning ? 'btn--armed' : 'btn--dim'}`}
+              aria-pressed={turning}
+              onClick={() => setTurning((on) => !on)}
+              disabled={!playing}>
+              TURN
             </button>
             {canGiveUp ? (
               <button
@@ -278,7 +363,8 @@ export function App() {
           </div>
 
           <p className="keys only-pointer">
-            <kbd>space</kbd> step <span className="keys__sep">·</span> <kbd>R</kbd> restart{' '}
+            <kbd>space</kbd> step <span className="keys__sep">·</span> <kbd>shift</kbd>+click
+            turn <span className="keys__sep">·</span> <kbd>R</kbd> restart{' '}
             <span className="keys__sep">·</span> <kbd>esc</kbd> progress
           </p>
         </footer>
@@ -288,10 +374,13 @@ export function App() {
         <RoomPreview level={state.level} onBegin={() => setStudying(false)} />
       )}
 
+      {/* The walk without the room, on the way back to the start of the same level. */}
+      {reviewing && playing && <PathReview state={state} onRestart={restartNow} />}
+
       {!playing && !finished && (
         <RunSummary
           state={state}
-          onRestart={onRestart}
+          onRestart={restartNow}
           onNext={advance}
           nextLabel={lastLevel ? 'FINISH' : 'NEXT'}
         />
@@ -314,6 +403,13 @@ export function App() {
           progress={progress}
           current={levelIndex}
           onEasyChange={onEasyChange}
+          onSelect={(index) => {
+            // Also the way back from the end screen, which is otherwise a dead end with
+            // one button on it.
+            setFinished(false);
+            loadLevel(index);
+            setShowProgress(false);
+          }}
           onClose={() => setShowProgress(false)}
         />
       )}

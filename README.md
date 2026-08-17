@@ -49,21 +49,37 @@ domain root or under any path.
 | | |
 |---|---|
 | click / tap | call in that direction |
+| shift-click, or `TURN` then click | face that direction, in silence |
 | `space` | step |
-| `R` | restart the room |
+| `R` | restart the room (once to see your path, again to go back in) |
 | `esc` | the record |
 
 On a mouse, a faint dashed line follows the cursor to show where a call would go. A call
 is the expensive move; walking blind is meant to be the cheap, frightening option.
+
+Turning is the free one. A body pivots without announcing it, so facing a new direction
+costs nothing and is scored nowhere — and tells you nothing either, which is the whole
+trade: you are now walking into somewhere you have not heard. It is what makes a single
+call worth several moves, and it is how a room gets cleared at par. The dashed aim line
+turns the colour of your heading while a silent turn is what a click would do.
 
 Scoring starts at 1000 and pays for every call and step beyond the room's optimum, so
 using the sense less always scores better. Those optima are not estimates — see below.
 The first five rooms allow giving up, because being shown the room you failed to read is
 the lesson; after that the floor plan is what you get for finding the way out.
 
+Restarting is in between. Before the room starts again you get your own line and the
+points you called from, drawn over a blank plan — enough to see that you swept the same
+corner three times, and not enough to tell you where the corner was. The walk is yours;
+the room still has to be earned.
+
 Progress lives in `localStorage` under `echo.progress.v1`. Easy mode, on the record
 screen, shows each room's plan before you go in — the shape and the doorway, but never
 where *you* are, which is the question the sense actually answers.
+
+Every row on that screen is also a door: tap one to start that room from the top. Nothing
+is locked, since `SKIP` always let you leave a room unsolved anyway, and a room you
+skipped past is otherwise unreachable without playing the game again.
 
 ## Layout
 
@@ -98,6 +114,12 @@ cheapest escape from each of the 25 rooms, then replays the route it finds throu
 actual game reducer and checks the result scores exactly 1000. A clean run proves the
 raycasting, the movement model, the level geometry and the scoring all agree with the
 numbers written in `levels.ts`. Re-run it after touching any geometry.
+
+It searches in *legs* — one call plus every step taken on that heading — and so ignores
+silent turns on purpose. A searcher allowed to turn for free already knows where the
+walls are and would escape every room on no calls at all, which would set par at zero and
+make every call you ever make a penalty. Par is the route a player could plan from what a
+call can tell them; turning is how you walk that route blind.
 
 ## Notes on the port
 

@@ -14,8 +14,10 @@ import { LEVELS } from '../src/game/levels';
 import { grade, initialRun, runReducer, scoreRun } from '../src/game/run';
 import { AllClear } from '../src/ui/AllClear';
 import { App } from '../src/ui/App';
+import { PathReview } from '../src/ui/PathReview';
 import { ProgressPage } from '../src/ui/ProgressPage';
 import { RoomPreview } from '../src/ui/RoomPreview';
+import { RunPath } from '../src/ui/RunPath';
 import { RunSummary } from '../src/ui/RunSummary';
 
 // Progress is read synchronously during the first render, so there has to be somewhere
@@ -69,6 +71,21 @@ check('calling costs a call and sets the heading', run.pings === 1 && run.headin
 
 run = runReducer(run, { type: 'STEP' });
 check('stepping costs a move and extends the path', run.moves === 1 && run.path.length === 2);
+
+const turned = runReducer(run, { type: 'TURN', heading: Math.PI / 2 });
+check(
+  'turning is free, and changes nothing but where you face',
+  turned.heading === Math.PI / 2 &&
+    turned.pings === run.pings &&
+    turned.moves === run.moves &&
+    turned.path.length === run.path.length &&
+    turned.calls.length === run.calls.length &&
+    turned.pos === run.pos,
+);
+check(
+  'turning clears the wall you walked into',
+  runReducer({ ...run, blocked: true }, { type: 'TURN', heading: 1 }).blocked === false,
+);
 check('giving up scores nothing', scoreRun(runReducer(run, { type: 'GIVE_UP' })) === 0);
 check('a score of zero has no grade', grade(0) === '—');
 
@@ -85,6 +102,10 @@ const screens: [string, () => string][] = [
         <RunSummary state={escaped} onRestart={() => {}} onNext={() => {}} />,
       ),
   ],
+  [
+    'the restart review',
+    () => renderToStaticMarkup(<PathReview state={run} onRestart={() => {}} />),
+  ],
   ['the plan', () => renderToStaticMarkup(<RoomPreview level={level} onBegin={() => {}} />)],
   [
     'the record',
@@ -98,6 +119,7 @@ const screens: [string, () => string][] = [
           }}
           current={3}
           onEasyChange={() => {}}
+          onSelect={() => {}}
           onClose={() => {}}
         />,
       ),
@@ -119,6 +141,35 @@ for (const [name, render] of screens) {
     check(`${name} renders`, false, String(e));
   }
 }
+
+// The marks are checked apart from the plan that hosts them: a plan draws its children
+// only once it has measured itself, and nothing measures without a layout, so rendering
+// either screen here proves the frame and never the line inside it.
+const marks = renderToStaticMarkup(
+  <svg>
+    <RunPath state={run} perPx={0.2} endColor="#C7D3DC" />
+  </svg>,
+);
+check(
+  'the path runs through every position occupied',
+  marks.includes(run.path.map((p) => `${p.x},${p.y}`).join(' ')),
+  `${run.path.length} points`,
+);
+check(
+  'and carries a ring per call plus both end markers',
+  (marks.match(/<circle/g) ?? []).length === run.calls.length + 2,
+);
+
+// The one thing that screen must never do. A wall drawn here would hand out the answer
+// for free, and it would do it on the screen the player sees most often.
+check(
+  'the restart review draws no walls',
+  !renderToStaticMarkup(<PathReview state={run} onRestart={() => {}} />).includes('<line'),
+);
+check(
+  'the debrief does draw them',
+  renderToStaticMarkup(<RunSummary state={escaped} onRestart={() => {}} />).includes('<line'),
+);
 
 try {
   const plans = LEVELS.map((l) => renderToStaticMarkup(<RoomPreview level={l} onBegin={() => {}} />));

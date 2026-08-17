@@ -9,17 +9,25 @@ import { grade } from '@/game/run';
  *
  * Only escapes are recorded, and only your best one per room. Giving up is not a
  * performance, and a bad run should not overwrite a good one.
+ *
+ * It is also the way around the game: every row is a door into that room. Nothing is
+ * locked, because nothing ever was — SKIP has always let you walk out of a room you
+ * could not read — and a list of rooms you may not enter would be a worse lie than the
+ * one the game already tells you about the walls.
  */
 export function ProgressPage({
   progress,
   current,
   onEasyChange,
+  onSelect,
   onClose,
 }: {
   progress: Progress;
   /** Index of the level in play, marked so the list has a "you are here". */
   current: number;
   onEasyChange: (easy: boolean) => void;
+  /** Start a room from the top. Also the way back into one you skipped past. */
+  onSelect: (index: number) => void;
   onClose: () => void;
 }) {
   const cleared = LEVELS.filter((level) => progress.results[level.id]).length;
@@ -47,6 +55,7 @@ export function ProgressPage({
             best={level.best}
             result={progress.results[level.id]}
             current={i === current}
+            onSelect={() => onSelect(i)}
           />
         ))}
       </ol>
@@ -74,44 +83,56 @@ export function ProgressPage({
   );
 }
 
+/**
+ * One room. A button rather than a line of text, so the whole row is the target — on a
+ * phone the score and the name are both too small to aim at, and the row is not.
+ */
 function Row({
   index,
   name,
   best,
   result,
   current,
+  onSelect,
 }: {
   index: number;
   name: string;
   best: { pings: number; moves: number };
   result?: LevelResult;
   current: boolean;
+  onSelect: () => void;
 }) {
   return (
-    <li className={`row ${current ? 'row--current' : ''}`}>
-      <span className="row__index">{String(index + 1).padStart(2, '0')}</span>
+    <li>
+      <button
+        type="button"
+        className={`row ${current ? 'row--current' : ''}`}
+        aria-current={current ? 'true' : undefined}
+        onClick={onSelect}>
+        <span className="row__index">{String(index + 1).padStart(2, '0')}</span>
 
-      <span className="row__middle">
-        <span className={`row__name ${result ? '' : 'is-unplayed'}`}>{name}</span>
-        <span className="row__detail">
-          {result
-            ? `${result.pings} calls · ${result.moves} moves`
-            : `par ${best.pings} calls · ${best.moves} moves`}
-        </span>
-      </span>
-
-      {result ? (
-        <span className="row__right">
-          <span className="row__score">{result.score}</span>
-          <span
-            className="row__grade"
-            style={{ color: GRADE_COLOR[grade(result.score)] ?? '#5A6672' }}>
-            {grade(result.score)}
+        <span className="row__middle">
+          <span className={`row__name ${result ? '' : 'is-unplayed'}`}>{name}</span>
+          <span className="row__detail">
+            {result
+              ? `${result.pings} calls · ${result.moves} moves`
+              : `par ${best.pings} calls · ${best.moves} moves`}
           </span>
         </span>
-      ) : (
-        <span className="row__pending">—</span>
-      )}
+
+        {result ? (
+          <span className="row__right">
+            <span className="row__score">{result.score}</span>
+            <span
+              className="row__grade"
+              style={{ color: GRADE_COLOR[grade(result.score)] ?? '#5A6672' }}>
+              {grade(result.score)}
+            </span>
+          </span>
+        ) : (
+          <span className="row__pending">—</span>
+        )}
+      </button>
     </li>
   );
 }

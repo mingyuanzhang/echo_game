@@ -198,8 +198,15 @@ ol {
   min-height: 17px;
 }
 
+/* Armed for a silent turn — said in the colour of the heading line it is about to move. */
+.hint.is-turning {
+  color: var(--text-mid);
+}
+
 .buttons {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 8px;
 }
 
@@ -293,6 +300,12 @@ kbd {
 .btn--dim {
   background: transparent;
   color: var(--text-dim);
+}
+
+/* A toggle that is currently on. Same footprint as its off state, so nothing shifts. */
+.btn--armed {
+  background: var(--panel-accent);
+  color: var(--sound);
 }
 
 .btn--block {
@@ -476,12 +489,29 @@ kbd {
   -webkit-overflow-scrolling: touch;
 }
 
+/* A button, so every room in the list is a way into it. */
 .row {
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
   padding: 9px 6px;
+  border: 0;
   border-radius: 8px;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.row:hover {
+  background: var(--panel);
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--sound);
+  outline-offset: -2px;
 }
 
 .row--current {

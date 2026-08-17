@@ -17,7 +17,10 @@ export type Call = { at: Vec2; heading: number };
 export type RunState = {
   level: Level;
   pos: Vec2;
-  /** The direction a step would take. Set by calling — you walk where you last looked. */
+  /**
+   * The direction a step would take. Set by calling — you walk where you last looked —
+   * or by turning, which is free and tells you nothing.
+   */
   heading: number;
   pings: number;
   moves: number;
@@ -31,6 +34,7 @@ export type RunState = {
 
 export type RunAction =
   | { type: 'CALL'; heading: number }
+  | { type: 'TURN'; heading: number }
   | { type: 'STEP' }
   | { type: 'GIVE_UP' }
   | { type: 'RESTART' }
@@ -87,6 +91,18 @@ export function runReducer(state: RunState, action: RunAction): RunState {
         calls: [...state.calls, { at: state.pos, heading: action.heading }],
         blocked: false,
       };
+
+    /**
+     * Turning on the spot. You can always face a different way without announcing it —
+     * a body pivots in silence — so this costs nothing and is recorded nowhere. What it
+     * does not do is tell you anything: you are now walking into a direction you have
+     * not heard, which is exactly the trade being offered.
+     *
+     * Clears `blocked` for the same reason calling does. That flag means "the last step
+     * hit something ahead", and ahead has just moved.
+     */
+    case 'TURN':
+      return { ...state, heading: action.heading, blocked: false };
 
     case 'STEP': {
       const { pos, blocked } = advance(state, state.heading);

@@ -73,7 +73,9 @@ export function EchoField({
   heading,
   blocked,
   interactive,
+  turning,
   onCall,
+  onTurn,
 }: {
   pings: FieldPing[];
   /** Where a step would take you. */
@@ -81,7 +83,10 @@ export function EchoField({
   blocked: boolean;
   /** False while an overlay owns the screen, or once the run is over. */
   interactive: boolean;
+  /** Armed for a silent turn: the next press points you instead of calling. */
+  turning: boolean;
   onCall: (heading: number) => void;
+  onTurn: (heading: number) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -95,14 +100,20 @@ export function EchoField({
   const headingRef = useRef(heading);
   const blockedRef = useRef(blocked);
   const interactiveRef = useRef(interactive);
-  /** Bearing to the cursor, or null on touch and when the pointer has left. */
-  const aimRef = useRef<number | null>(null);
+  const turningRef = useRef(turning);
+  /**
+   * Bearing to the cursor and what a press there would do, or null on touch and when
+   * the pointer has left. Held together because they are drawn as one line: which of
+   * the two moves you are about to make is part of where you are pointing.
+   */
+  const aimRef = useRef<{ bearing: number; silent: boolean } | null>(null);
   /** Canvas size in CSS pixels, and the scale its context is currently set to. */
   const sizeRef = useRef({ w: 0, h: 0, dpr: 1 });
 
   headingRef.current = heading;
   blockedRef.current = blocked;
   interactiveRef.current = interactive;
+  turningRef.current = turning;
 
   // Derive each call's blips once, and drop the derivation when the call is retired.
   if (pingsRef.current !== pings) {
@@ -149,8 +160,9 @@ export function EchoField({
       ctx.clearRect(0, 0, w, h);
 
       drawRim(ctx, layout);
-      if (interactiveRef.current && aimRef.current !== null) {
-        drawAim(ctx, layout, aimRef.current);
+      const aim = aimRef.current;
+      if (interactiveRef.current && aim !== null) {
+        drawAim(ctx, layout, aim.bearing, aim.silent);
       }
       drawHeading(ctx, layout, headingRef.current, blockedRef.current);
 
@@ -164,10 +176,28 @@ export function EchoField({
       drawSelf(ctx, layout);
     };
 
+    /**
+     * Shift changes what a press would do, and it can be pressed while the mouse sits
+     * still — so the aim line is repainted from the key as well as from the pointer.
+     * Only the drawing depends on this; the press itself reads the modifier off the
+     * event and is right whether or not anyone saw it coming.
+     */
+    const onShift = (e: KeyboardEvent) => {
+      if (e.key !== 'Shift' || !aimRef.current) return;
+      aimRef.current = {
+        ...aimRef.current,
+        silent: turningRef.current || e.type === 'keydown',
+      };
+    };
+    window.addEventListener('keydown', onShift);
+    window.addEventListener('keyup', onShift);
+
     frame = requestAnimationFrame(draw);
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
+      window.removeEventListener('keydown', onShift);
+      window.removeEventListener('keyup', onShift);
     };
   }, []);
 
@@ -186,16 +216,22 @@ export function EchoField({
     <canvas
       ref={canvasRef}
       className="field"
-      aria-label="Echo field. Click in a direction to call."
+      aria-label="Echo field. Click in a direction to call, or hold shift to turn in silence."
       onPointerDown={(e) => {
         if (!interactiveRef.current) return;
-        onCall(bearingTo(e));
+        // Shift is the mouse's own way of asking for the quiet move, so a player who has
+        // found it never has to arm the button between one turn and the next call.
+        if (turningRef.current || e.shiftKey) onTurn(bearingTo(e));
+        else onCall(bearingTo(e));
         // Keep the field from taking focus, so the space bar stays a step rather than
         // being swallowed as an activation of whatever was last clicked.
         e.preventDefault();
       }}
       onPointerMove={(e) => {
-        aimRef.current = e.pointerType === 'mouse' ? bearingTo(e) : null;
+        aimRef.current =
+          e.pointerType === 'mouse'
+            ? { bearing: bearingTo(e), silent: turningRef.current || e.shiftKey }
+            : null;
       }}
       onPointerLeave={() => {
         aimRef.current = null;
@@ -254,11 +290,19 @@ function drawHeading(
  * a way a finger never did, and a call is the expensive move — so the pointer gets to
  * show its bearing. Dashed and dimmer than the heading, because it is a proposal rather
  * than a fact about your body.
+ *
+ * A silent turn is proposed in the heading's own colour: what it changes is where your
+ * body points, and nothing leaves you. Same dashes, since it is still only a proposal.
  */
-function drawAim(ctx: CanvasRenderingContext2D, layout: EgoLayout, aim: number) {
+function drawAim(
+  ctx: CanvasRenderingContext2D,
+  layout: EgoLayout,
+  aim: number,
+  silent: boolean,
+) {
   ctx.save();
   ctx.globalAlpha = 1;
-  ctx.strokeStyle = AIM_COLOR;
+  ctx.strokeStyle = silent ? HEADING_COLOR : AIM_COLOR;
   ctx.lineWidth = 1;
   ctx.setLineDash([3, 6]);
   ctx.beginPath();

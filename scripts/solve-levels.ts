@@ -17,6 +17,13 @@
  * expanded a whole leg at a time and the first leg count that reaches the doorway is
  * the answer; steps break ties within it.
  *
+ * Deliberately blind to silent turns, which the game does allow. A searcher that could
+ * turn for free would escape every room on no calls at all — it knows where the walls
+ * are — and par would collapse to zero, making every call you ever make a penalty. Par
+ * measures the route a player could plan from what a call can tell them, so a leg here
+ * stays one call long. Turning silently is how you *reach* that par blind, not a cheaper
+ * standard to be held to.
+ *
  * The one trick worth knowing: a leg needs a single ray cast, not one per step. Every
  * step on a leg travels the same line, so the distance to the obstruction ahead simply
  * decreases by the step length, and the position after k steps is a closed form.

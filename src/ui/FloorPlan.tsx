@@ -27,6 +27,10 @@ export function FloorPlan({
   world: World;
   /** Drawn last, so it stays legible over whatever the caller puts inside. */
   exit?: { a: Vec2; b: Vec2 };
+  /**
+   * Zero withholds the room entirely — the frame and the scale stay, the walls do not.
+   * Used by the restart review, which shows you your own path over a blank plan.
+   */
   wallOpacity?: number;
   className?: string;
   /**
@@ -69,19 +73,20 @@ export function FloorPlan({
       role="img"
       aria-label="Floor plan of the room">
       <g strokeLinecap="square" vectorEffect="non-scaling-stroke">
-        {world.walls.map((seg, i) => (
-          <line
-            key={i}
-            x1={seg.a.x}
-            y1={seg.a.y}
-            x2={seg.b.x}
-            y2={seg.b.y}
-            stroke={MATERIAL_COLOR[seg.material]}
-            strokeOpacity={wallOpacity}
-            strokeWidth={2}
-            vectorEffect="non-scaling-stroke"
-          />
-        ))}
+        {wallOpacity > 0 &&
+          world.walls.map((seg, i) => (
+            <line
+              key={i}
+              x1={seg.a.x}
+              y1={seg.a.y}
+              x2={seg.b.x}
+              y2={seg.b.y}
+              stroke={MATERIAL_COLOR[seg.material]}
+              strokeOpacity={wallOpacity}
+              strokeWidth={2}
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
       </g>
 
       {perPx > 0 && children?.(perPx)}
